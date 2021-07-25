@@ -1,2 +1,4 @@
 /target
 Cargo.lock
+test.0.0.mca
+cbgen.log*
