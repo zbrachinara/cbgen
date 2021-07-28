@@ -84,23 +84,20 @@ impl McaFile {
             Raw => from_reader(data_section),
         } {
             Err(x) => {
-                debug!("hematite-nbt failed: {}", x);
-                let pos = file.seek(SeekFrom::Start(start_offset))?;
+                error!("hematite-nbt failed: {}", x);
+                file.seek(SeekFrom::Start(start_offset))?;
                 return Err(Box::new(x));
             }
             Ok(x) => x,
         };
 
-        let pos = file.seek(SeekFrom::Start(start_offset))?;
-        debug!("Returning to: {}", pos);
+        file.seek(SeekFrom::Start(start_offset))?;
 
-        Result::Ok(Option::Some(Chunk{
+        Result::Ok(Option::Some(Chunk {
             offset,
             size,
             mode,
             nbt,
         }))
-
     }
-
 }

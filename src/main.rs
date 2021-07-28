@@ -12,7 +12,7 @@ fn main() {
     let filename = std::env::args().nth(1).unwrap_or("test.0.0.mca".into());
 
     let mca = McaFile::open(filename).unwrap_or_else(|_| {
-        println!("No test mca file at this path");
+        error!("No test mca file at this path");
         std::process::exit(1);
     });
 }
