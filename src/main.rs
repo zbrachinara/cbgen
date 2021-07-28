@@ -10,12 +10,11 @@ fn main() {
     });
     log_panics::init();
 
-    // let f = File::open("test.0.0.mca").unwrap_or_else(|_| {
-    //     println!("Got the wrong path");
-    //     std::process::exit(1);
-    // });
+    let filename = std::env::args()
+        .nth(1)
+        .unwrap_or("test.0.0.mca".into());
 
-    let mca = McaFile::open("test.0.0.mca").unwrap_or_else(|_| {
+    let mca = McaFile::open(filename).unwrap_or_else(|_| {
         println!("No test mca file at this path");
         std::process::exit(1);
     });
