@@ -1,15 +1,9 @@
-use std::io::{Read, Seek, SeekFrom};
-use std::fs::File;
-use std::path::Path;
 use std::convert::TryInto;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 
-use nbt::{
-    Value,
-    Blob,
-    from_gzip_reader,
-    from_zlib_reader,
-    from_reader,
-};
+use nbt::{from_gzip_reader, from_reader, from_zlib_reader, Blob, Value};
 
 use log::*;
 
@@ -40,17 +34,13 @@ pub struct McaFile {
 }
 
 impl McaFile {
-
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-
         let mut buf: [u8; 4] = [0; 4];
         let mut file = File::open(path)?;
         // init chunk array
 
-
         for x in 0..32 {
             for z in 0..32 {
-
                 file.read_exact(&mut buf)?;
 
                 // combine first three bytes into u32 while
@@ -60,21 +50,16 @@ impl McaFile {
                 // debug!("Chunk ({}, {})   offset (bytes): {:x?}, sector count (4 KiB each): {}", x, z, offset, size);
 
                 McaFile::read_chunk_at(&mut file, offset);
-
             }
         }
 
-        Result::Ok(
-            Self {
-                file,
-                // chunks: chunks.into(),
-            }
-        )
-
+        Result::Ok(Self {
+            file,
+            // chunks: chunks.into(),
+        })
     }
 
     fn read_chunk_at(file: &mut File, offset: u32) -> Result<Option<Chunk>> {
-
         if offset == 0 {
             return Result::Ok(None);
         }
