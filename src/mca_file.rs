@@ -9,7 +9,7 @@ use log::*;
 
 type StdResult<U, V> = std::result::Result<U, V>;
 type Result<T> = StdResult<T, Box<dyn std::error::Error>>;
-const KILOBYTE: u32 = 1024;
+const KILOBYTE: usize = 1024;
 use CompressionMode::*;
 
 #[derive(Debug)]
@@ -26,9 +26,10 @@ impl Default for CompressionMode {
 }
 
 #[derive(Debug, Default)]
-struct Chunk {
+pub struct Chunk {
     offset: u32,
     size: u32,
+    timestamp: u32,
     mode: CompressionMode,
     nbt: Blob,
 }
@@ -59,12 +60,39 @@ impl McaFile {
         })
     }
 
-    fn read_chunk_at(file: &mut File, offset: u32) -> Result<Option<Chunk>> {
+    pub fn read_chunk(&mut self, posx: usize, posz: usize) -> Result<&Option<Chunk>> {
+        if let None = &self.chunks[posx][posz] {
+            // retry to see if there is a chunk in this location
+            let mut buf: [u8; 4] = [0; 4];
+            let loc_offset = (posx * 32 + posz) * 4;
+            let timestamp_offset = loc_offset + 4 * KILOBYTE;
+
+            self.file.read_exact(&mut buf)?;
+            let dat_offset = u32::from_be_bytes([0, buf[0], buf[1], buf[2]]) * 4 * KILOBYTE as u32;
+
+            self.file.seek(SeekFrom::Start(timestamp_offset as u64))?;
+            self.file.read_exact(&mut buf)?;
+            let timestamp = u32::from_be_bytes(buf);
+
+            if let Some((nbt, mode, size)) = McaFile::read_chunk_at(&mut self.file, dat_offset)? {
+                self.chunks[posx][posz] = Some(Chunk {
+                    nbt,
+                    mode,
+                    size,
+                    timestamp,
+                    offset: dat_offset,
+                })
+            };
+        }
+
+        Result::Ok(&self.chunks[posx][posz])
+    }
+
+    fn read_chunk_at(file: &mut File, offset: u32) -> Result<Option<(Blob, CompressionMode, u32)>> {
         if offset == 0 {
             return Result::Ok(None);
         }
 
-        let start_offset = file.stream_position()?;
         file.seek(SeekFrom::Start(offset as u64))?;
 
         let mut buf: [u8; 5] = [0; 5];
@@ -78,26 +106,12 @@ impl McaFile {
             _ => unreachable!(),
         };
         let data_section = file.take(size as u64);
-        let nbt: Blob = match match mode {
+        let nbt: Blob = match mode {
             GZip => from_gzip_reader(data_section),
             ZLib => from_zlib_reader(data_section),
             Raw => from_reader(data_section),
-        } {
-            Err(x) => {
-                error!("hematite-nbt failed: {}", x);
-                file.seek(SeekFrom::Start(start_offset))?;
-                return Err(Box::new(x));
-            }
-            Ok(x) => x,
-        };
+        }?;
 
-        file.seek(SeekFrom::Start(start_offset))?;
-
-        Result::Ok(Option::Some(Chunk {
-            offset,
-            size,
-            mode,
-            nbt,
-        }))
+        Ok(Some((nbt, mode, size)))
     }
 }
