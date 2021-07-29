@@ -19,7 +19,13 @@ enum CompressionMode {
     Raw,
 }
 
-#[derive(Debug)]
+impl Default for CompressionMode {
+    fn default() -> Self {
+        Self::Raw
+    }
+}
+
+#[derive(Debug, Default)]
 struct Chunk {
     offset: u32,
     size: u32,
@@ -30,32 +36,26 @@ struct Chunk {
 #[derive(Debug)]
 pub struct McaFile {
     file: File,
-    // chunks: [[Option<Chunk>; 32]; 32],
+    chunks: [[Option<Chunk>; 32]; 32],
 }
 
 impl McaFile {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let mut buf: [u8; 4] = [0; 4];
-        let mut file = File::open(path)?;
         // init chunk array
-
-        for x in 0..32 {
-            for z in 0..32 {
-                file.read_exact(&mut buf)?;
-
-                // combine first three bytes into u32 while
-                // interpreting as big endian
-                let offset = u32::from_be_bytes([0, buf[0], buf[1], buf[2]]) * 4 * KILOBYTE;
-                let size = buf[3];
-                // debug!("Chunk ({}, {})   offset (bytes): {:x?}, sector count (4 KiB each): {}", x, z, offset, size);
-
-                McaFile::read_chunk_at(&mut file, offset);
+        let mut chunks = vec![];
+        chunks.reserve_exact(32);
+        for _ in 0..32 {
+            let mut row = vec![];
+            row.reserve_exact(32);
+            for _ in 0..32 {
+                row.push(Option::<Chunk>::None);
             }
+            chunks.push(row.try_into().unwrap());
         }
 
         Result::Ok(Self {
-            file,
-            // chunks: chunks.into(),
+            file: File::open(path)?,
+            chunks: chunks.try_into().unwrap(),
         })
     }
 
